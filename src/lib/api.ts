@@ -359,6 +359,14 @@ export const attendanceApi = {
     });
   },
 
+  // Check in
+  checkIn: async (data: { employeeId: string; checkInTime: string }): Promise<AttendanceResponse> => {
+    return fetchApi<AttendanceResponse>('/attendance/checkin', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
   // Check out with report
   checkout: async (data: AttendanceCheckoutPayload): Promise<AttendanceResponse> => {
     return fetchApi<AttendanceResponse>('/attendance/checkout', {
@@ -370,14 +378,15 @@ export const attendanceApi = {
   // Get today's attendance for current employee
   getTodayAttendance: async (): Promise<AttendanceResponse> => {
     const token = getToken();
+    const employeeId = localStorage.getItem('employeeId');
+    
+    console.log('getTodayAttendance - token:', token ? 'exists' : 'none', 'employeeId:', employeeId);
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
     };
 
-    // Get employee ID from localStorage (stored during login)
-    const employeeId = localStorage.getItem('employeeId');
     if (employeeId) {
       (headers as Record<string, string>)['x-employee-id'] = employeeId;
     }
@@ -388,6 +397,7 @@ export const attendanceApi = {
     });
 
     const data = await response.json();
+    console.log('getTodayAttendance response:', response.status, data);
 
     if (!response.ok) {
       throw new Error(data.message || 'An error occurred');

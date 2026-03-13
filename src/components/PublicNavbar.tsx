@@ -8,6 +8,7 @@ const navLinks = [
   { label: 'Home', path: '/' },
   { label: 'About', path: '/about' },
   { label: 'Services', path: '/services' },
+  { label: 'Jobs', path: '/jobs' },
   { label: 'Contact', path: '/contact' },
 ];
 
@@ -30,11 +31,10 @@ export default function PublicNavbar() {
             <Link
               key={l.path}
               to={l.path}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                pathname === l.path
-                  ? 'text-primary bg-primary/10'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${pathname === l.path
+                ? 'text-primary bg-primary/10'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
             >
               {l.label}
             </Link>
@@ -70,9 +70,8 @@ export default function PublicNavbar() {
                   key={l.path}
                   to={l.path}
                   onClick={() => setOpen(false)}
-                  className={`px-4 py-2.5 rounded-lg text-sm font-medium ${
-                    pathname === l.path ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
-                  }`}
+                  className={`px-4 py-2.5 rounded-lg text-sm font-medium ${pathname === l.path ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
+                    }`}
                 >
                   {l.label}
                 </Link>

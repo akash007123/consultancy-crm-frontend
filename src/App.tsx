@@ -13,6 +13,8 @@ import Index from "./pages/Index";
 import About from "./pages/About";
 import Services from "./pages/Services";
 import Contact from "./pages/Contact";
+import Jobs from "./pages/Jobs";
+import ApplyJob from "./pages/ApplyJob";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
@@ -68,6 +70,8 @@ function AppRoutes() {
         <Route path="/" element={<Index />} />
         <Route path="/about" element={<About />} />
         <Route path="/services" element={<Services />} />
+        <Route path="/jobs" element={<Jobs />} />
+        <Route path="/apply-job" element={<ApplyJob />} />
         <Route path="/contact" element={<Contact />} />
       </Route>
       <Route path="/login" element={<Login />} />
@@ -104,7 +108,7 @@ function AppRoutes() {
 
 function AppContent() {
   const { checkAuth, isLoading } = useAuthStore();
-  
+
   // Check authentication on app load
   useEffect(() => {
     checkAuth();

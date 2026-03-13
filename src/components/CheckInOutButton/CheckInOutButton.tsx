@@ -9,7 +9,7 @@ const formatTime = (totalSeconds: number): string => {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  
+
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
 
@@ -61,16 +61,19 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
     const checkTodayStatus = async () => {
       // Try to get employee ID from multiple sources
       let empId = getEmployeeId();
-      
+
+      console.log('checkTodayStatus called, empId:', empId);
+
       // If no employeeId yet, wait a moment for auth to load
       if (!empId) {
         // Wait for auth store to be populated
         for (let i = 0; i < 5 && !empId; i++) {
           await new Promise(resolve => setTimeout(resolve, 500));
           empId = getEmployeeId();
+          console.log('Waiting for empId, attempt', i + 1, 'empId:', empId);
         }
       }
-      
+
       if (!empId) {
         console.warn('No employee ID available for attendance check');
         setIsLoadingStatus(false);
@@ -80,12 +83,15 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
       try {
         // Try to get today's attendance status from backend
         const response = await attendanceApi.getTodayAttendance();
-        
+        console.log('Today attendance response:', response);
+
         if (response.success && response.data) {
           const { hasCheckedIn, hasCompletedToday: completed, attendance } = response.data;
-          
+          console.log('hasCheckedIn:', hasCheckedIn, 'hasCompletedToday:', completed);
+
           // If already completed today, mark as done
           if (completed) {
+            console.log('Employee completed today, disabling check-in');
             setHasCompletedToday(true);
             setIsCheckedIn(false);
             setCheckInTime(null);
@@ -93,7 +99,7 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
             setIsLoadingStatus(false);
             return;
           }
-          
+
           // If checked in but not completed, restore the session
           if (hasCheckedIn && attendance) {
             const storedCheckIn = localStorage.getItem('checkInTime');
@@ -101,7 +107,7 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
               const storedTime = new Date(storedCheckIn);
               setCheckInTime(storedTime);
               setIsCheckedIn(true);
-              
+
               // Calculate elapsed seconds from stored check-in time
               const now = new Date();
               const elapsed = Math.floor((now.getTime() - storedTime.getTime()) / 1000);
@@ -117,7 +123,7 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
           const storedTime = new Date(storedCheckIn);
           setCheckInTime(storedTime);
           setIsCheckedIn(true);
-          
+
           const now = new Date();
           const elapsed = Math.floor((now.getTime() - storedTime.getTime()) / 1000);
           setElapsedSeconds(elapsed > 0 ? elapsed : 0);
@@ -126,14 +132,14 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
         setIsLoadingStatus(false);
       }
     };
-    
+
     checkTodayStatus();
   }, [user]);
 
   // Timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
+
     if (isCheckedIn && checkInTime) {
       interval = setInterval(() => {
         const now = new Date();
@@ -141,26 +147,54 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
         setElapsedSeconds(elapsed);
       }, 1000);
     }
-    
+
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [isCheckedIn, checkInTime]);
 
-  const handleCheckIn = useCallback(() => {
+  const handleCheckIn = useCallback(async () => {
     // Prevent check-in if already completed today
     if (hasCompletedToday) {
       alert('Your checkout already done for today. You can check in again from tomorrow.');
       return;
     }
-    
+
+    const empId = getEmployeeId();
+    if (!empId) {
+      alert('Employee ID not found. Please log in again.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
     const now = new Date();
-    setCheckInTime(now);
-    setIsCheckedIn(true);
-    setElapsedSeconds(0);
-    
-    // Store check-in time in localStorage for persistence
-    localStorage.setItem('checkInTime', now.toISOString());
+    const checkInTime = now.toISOString();
+
+    try {
+      // Call backend API to record check-in
+      await attendanceApi.checkIn({
+        employeeId: empId,
+        checkInTime,
+      });
+
+      // Update local state
+      setCheckInTime(now);
+      setIsCheckedIn(true);
+      setElapsedSeconds(0);
+
+      // Store check-in time in localStorage for persistence
+      localStorage.setItem('checkInTime', now.toISOString());
+    } catch (error) {
+      console.error('Check-in failed:', error);
+      // Even if API fails, allow local check-in for offline resilience
+      setCheckInTime(now);
+      setIsCheckedIn(true);
+      setElapsedSeconds(0);
+      localStorage.setItem('checkInTime', now.toISOString());
+    } finally {
+      setIsSubmitting(false);
+    }
   }, [hasCompletedToday]);
 
   const handleCheckOut = useCallback(() => {
@@ -173,14 +207,14 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
       alert('Please enter a work report');
       return;
     }
-    
+
     if (!checkInTime) return;
-    
+
     setIsSubmitting(true);
-    
+
     const now = new Date();
     const totalTime = formatTime(elapsedSeconds);
-    
+
     try {
       await onCheckout({
         checkInTime: checkInTime.toISOString(),
@@ -188,17 +222,17 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
         totalTime,
         report: report.trim(),
       });
-      
+
       // Reset state after successful submission
       setIsCheckedIn(false);
       setCheckInTime(null);
       setElapsedSeconds(0);
       setReport('');
       setShowReportModal(false);
-      
+
       // Mark as completed for today - prevents re check-in
       setHasCompletedToday(true);
-      
+
       // Clear localStorage
       localStorage.removeItem('checkInTime');
     } catch (error) {
@@ -254,8 +288,8 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
         <Button
           onClick={isCheckedIn ? handleCheckOut : handleCheckIn}
           disabled={isSubmitting}
-          className={isCheckedIn 
-            ? 'bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 h-8' 
+          className={isCheckedIn
+            ? 'bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 h-8'
             : 'bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 h-8'
           }
         >
@@ -320,7 +354,7 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
   }
 
   // Default full page view
-  
+
   // Show completed message when user has already checked out today
   if (hasCompletedToday) {
     return (
@@ -360,8 +394,8 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
         <Button
           onClick={isCheckedIn ? handleCheckOut : handleCheckIn}
           disabled={isSubmitting}
-          className={isCheckedIn 
-            ? 'min-w-[200px] text-lg font-semibold px-8 py-6 bg-destructive hover:bg-destructive/90 text-white' 
+          className={isCheckedIn
+            ? 'min-w-[200px] text-lg font-semibold px-8 py-6 bg-destructive hover:bg-destructive/90 text-white'
             : 'min-w-[200px] text-lg font-semibold px-8 py-6 bg-green-600 hover:bg-green-700 text-white'
           }
         >
@@ -382,7 +416,7 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
             </span>
           )}
         </Button>
-        
+
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Clock className="w-4 h-4" />
           {isCheckedIn ? (

@@ -47,7 +47,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: true, // Start with loading true to prevent premature redirects
   error: null,
 
   login: async (mobile: string, password: string) => {
@@ -138,8 +138,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   checkAuth: async () => {
+    // If no token exists, immediately set not authenticated and stop loading
     if (!authApi.isAuthenticated()) {
-      set({ isAuthenticated: false, user: null });
+      set({ isAuthenticated: false, user: null, isLoading: false });
       return;
     }
 
@@ -155,6 +156,8 @@ export const useAuthStore = create<AuthState>((set) => ({
           isAuthenticated: true, 
           isLoading: false 
         });
+        // Store user ID for attendance API calls
+        localStorage.setItem('employeeId', response.data.user.id.toString());
         return;
       }
       
@@ -174,6 +177,8 @@ export const useAuthStore = create<AuthState>((set) => ({
           isAuthenticated: true, 
           isLoading: false 
         });
+        // Store employee ID for attendance API calls
+        localStorage.setItem('employeeId', emp.id.toString());
         return;
       }
       
