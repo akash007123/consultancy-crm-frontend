@@ -331,6 +331,7 @@ export interface AttendanceAllResponse {
     attendance: {
       id: number;
       employee_id: string;
+      date: string;
       check_in_time: string;
       check_out_time: string | null;
       total_time: string | null;
@@ -345,10 +346,12 @@ export interface AttendanceAllResponse {
 
 export const attendanceApi = {
   // Get all attendance records (for admin/manager)
-  getAll: async (params?: { date?: string; employeeId?: string }): Promise<AttendanceAllResponse> => {
+  getAll: async (params?: { date?: string; employeeId?: string; fromDate?: string; toDate?: string }): Promise<AttendanceAllResponse> => {
     const queryParams = new URLSearchParams();
     if (params?.date) queryParams.append('date', params.date);
     if (params?.employeeId) queryParams.append('employeeId', params.employeeId);
+    if (params?.fromDate) queryParams.append('fromDate', params.fromDate);
+    if (params?.toDate) queryParams.append('toDate', params.toDate);
     
     const queryString = queryParams.toString();
     return fetchApi<AttendanceAllResponse>(`/attendance${queryString ? `?${queryString}` : ''}`, {
