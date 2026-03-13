@@ -7,6 +7,8 @@ import {
 import { useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
+import CheckInOutButton from '@/components/CheckInOutButton/CheckInOutButton';
+import { attendanceApi } from '@/lib/api';
 
 const menuItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/crm' },
@@ -40,6 +42,34 @@ export default function CRMLayout() {
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  // Check if user is an employee (not admin/manager/hr)
+  const isEmployee = user?.role === 'employee';
+
+  // Handle checkout API call
+  const handleCheckout = async (data: {
+    checkInTime: string;
+    checkOutTime: string;
+    totalTime: string;
+    report: string;
+  }) => {
+    if (!user?.id) {
+      throw new Error('User not authenticated');
+    }
+    
+    const payload = {
+      employeeId: user.id,
+      ...data,
+    };
+    
+    const response = await attendanceApi.checkout(payload);
+    
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to submit checkout');
+    }
+    
+    return response;
   };
 
   const SidebarContent = () => (
@@ -131,6 +161,12 @@ export default function CRMLayout() {
           </Button>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
+            {/* Check In/Out Button - Only for employees */}
+            {isEmployee && (
+              <div className="hidden md:block mr-2">
+                <CheckInOutButton onCheckout={handleCheckout} variant="compact" />
+              </div>
+            )}
             <div className="w-8 h-8 rounded-full gradient-hero flex items-center justify-center text-xs font-bold text-primary-foreground">
               {user?.name?.charAt(0) || 'U'}
             </div>

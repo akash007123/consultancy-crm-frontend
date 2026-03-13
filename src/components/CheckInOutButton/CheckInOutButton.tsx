@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { useAuthStore } from '@/store/authStore';
 import { Clock, LogIn, LogOut } from 'lucide-react';
 
 // Format seconds to HH:MM:SS
@@ -32,10 +31,10 @@ interface CheckInOutButtonProps {
     totalTime: string;
     report: string;
   }) => Promise<unknown>;
+  variant?: 'default' | 'compact';
 }
 
-export default function CheckInOutButton({ onCheckout }: CheckInOutButtonProps) {
-  const { user } = useAuthStore();
+export default function CheckInOutButton({ onCheckout, variant = 'default' }: CheckInOutButtonProps) {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [checkInTime, setCheckInTime] = useState<Date | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -96,7 +95,7 @@ export default function CheckInOutButton({ onCheckout }: CheckInOutButtonProps) 
       return;
     }
     
-    if (!checkInTime || !user) return;
+    if (!checkInTime) return;
     
     setIsSubmitting(true);
     
@@ -133,21 +132,92 @@ export default function CheckInOutButton({ onCheckout }: CheckInOutButtonProps) 
     setReport('');
   };
 
-  return (
-    <>
-      <div className="flex flex-col items-center gap-4 p-6">
-        {/* Main Check In/Out Button */}
+  // Determine if compact mode
+  const isCompact = variant === 'compact';
+
+  // Compact button for navbar
+  if (isCompact) {
+    return (
+      <>
         <Button
           onClick={isCheckedIn ? handleCheckOut : handleCheckIn}
           disabled={isSubmitting}
-          className={`
-            min-w-[200px] text-lg font-semibold px-8 py-6
-            transition-all duration-300 ease-in-out
-            ${isCheckedIn 
-              ? 'bg-destructive hover:bg-destructive/90 text-white' 
-              : 'bg-green-600 hover:bg-green-700 text-white'
-            }
-          `}
+          className={isCheckedIn 
+            ? 'bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 h-8' 
+            : 'bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 h-8'
+          }
+        >
+          {isSubmitting ? (
+            <span className="animate-spin">⟳</span>
+          ) : isCheckedIn ? (
+            <span className="flex items-center gap-1.5">
+              <LogOut className="w-3.5 h-3.5" />
+              {formatTime(elapsedSeconds)}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5">
+              <LogIn className="w-3.5 h-3.5" />
+              Check In
+            </span>
+          )}
+        </Button>
+
+        {/* Report Modal */}
+        {showReportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancel} />
+            <div className="relative bg-background rounded-lg shadow-xl w-full max-w-md mx-4 p-6 z-10">
+              <h2 className="text-xl font-bold mb-4">Work Report</h2>
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Check In Time</label>
+                  <p className="text-foreground">{checkInTime ? formatDateTime(checkInTime) : '--'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Check Out Time</label>
+                  <p className="text-foreground">{formatDateTime(new Date())}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Total Working Time</label>
+                  <p className="text-foreground font-semibold">{formatTime(elapsedSeconds)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Work Report <span className="text-destructive">*</span></label>
+                  <textarea
+                    value={report}
+                    onChange={(e) => setReport(e.target.value)}
+                    placeholder="Describe your work today..."
+                    className="mt-1 w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSubmitReport} disabled={isSubmitting || !report.trim()} className="bg-green-600 hover:bg-green-700">
+                  {isSubmitting ? 'Submitting...' : 'Submit Report'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // Default full page view
+  return (
+    <>
+      <div className="flex flex-col items-center gap-4 p-6">
+        <Button
+          onClick={isCheckedIn ? handleCheckOut : handleCheckIn}
+          disabled={isSubmitting}
+          className={isCheckedIn 
+            ? 'min-w-[200px] text-lg font-semibold px-8 py-6 bg-destructive hover:bg-destructive/90 text-white' 
+            : 'min-w-[200px] text-lg font-semibold px-8 py-6 bg-green-600 hover:bg-green-700 text-white'
+          }
         >
           {isSubmitting ? (
             <span className="flex items-center gap-2">
@@ -167,13 +237,10 @@ export default function CheckInOutButton({ onCheckout }: CheckInOutButtonProps) 
           )}
         </Button>
         
-        {/* Status indicator */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Clock className="w-4 h-4" />
           {isCheckedIn ? (
-            <span>
-              Checked in at: {checkInTime ? formatDateTime(checkInTime) : '--'}
-            </span>
+            <span>Checked in at: {checkInTime ? formatDateTime(checkInTime) : '--'}</span>
           ) : (
             <span>Ready to check in</span>
           )}
@@ -183,67 +250,38 @@ export default function CheckInOutButton({ onCheckout }: CheckInOutButtonProps) 
       {/* Report Modal */}
       {showReportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={handleCancel}
-          />
-          
-          {/* Modal Content */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancel} />
           <div className="relative bg-background rounded-lg shadow-xl w-full max-w-md mx-4 p-6 z-10">
             <h2 className="text-xl font-bold mb-4">Work Report</h2>
-            
-            {/* Read-only fields */}
             <div className="space-y-4 mb-6">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Check In Time</label>
-                <p className="text-foreground">
-                  {checkInTime ? formatDateTime(checkInTime) : '--'}
-                </p>
+                <p className="text-foreground">{checkInTime ? formatDateTime(checkInTime) : '--'}</p>
               </div>
-              
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Check Out Time</label>
-                <p className="text-foreground">
-                  {formatDateTime(new Date())}
-                </p>
+                <p className="text-foreground">{formatDateTime(new Date())}</p>
               </div>
-              
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Total Working Time</label>
-                <p className="text-foreground font-semibold">
-                  {formatTime(elapsedSeconds)}
-                </p>
+                <p className="text-foreground font-semibold">{formatTime(elapsedSeconds)}</p>
               </div>
-              
               <div>
-                <label className="text-sm font-medium text-muted-foreground">
-                  Work Report <span className="text-destructive">*</span>
-                </label>
+                <label className="text-sm font-medium text-muted-foreground">Work Report <span className="text-destructive">*</span></label>
                 <textarea
                   value={report}
                   onChange={(e) => setReport(e.target.value)}
                   placeholder="Describe your work today..."
-                  className="mt-1 w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="mt-1 w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm"
                   disabled={isSubmitting}
                 />
               </div>
             </div>
-            
-            {/* Buttons */}
             <div className="flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={handleCancel}
-                disabled={isSubmitting}
-              >
+              <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button
-                onClick={handleSubmitReport}
-                disabled={isSubmitting || !report.trim()}
-                className="bg-green-600 hover:bg-green-700"
-              >
+              <Button onClick={handleSubmitReport} disabled={isSubmitting || !report.trim()} className="bg-green-600 hover:bg-green-700">
                 {isSubmitting ? 'Submitting...' : 'Submit Report'}
               </Button>
             </div>

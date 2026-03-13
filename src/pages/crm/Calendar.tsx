@@ -185,7 +185,10 @@ export default function Calendar() {
       end: event.end || undefined,
       allDay: event.allDay,
       backgroundColor: event.backgroundColor,
-      extendedProps: event.extendedProps
+      extendedProps: {
+        ...event.extendedProps,
+        type: event.extendedProps.type as 'meeting' | 'task' | 'reminder' | 'event'
+      }
     };
     setSelectedEvent(selected);
     setIsEventDialogOpen(true);

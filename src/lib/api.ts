@@ -325,7 +325,35 @@ export interface AttendanceResponse {
   };
 }
 
+export interface AttendanceAllResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    attendance: {
+      id: number;
+      employee_id: string;
+      check_in_time: string;
+      check_out_time: string | null;
+      total_time: string | null;
+      report: string | null;
+      created_at: string;
+    }[];
+  };
+}
+
 export const attendanceApi = {
+  // Get all attendance records (for admin/manager)
+  getAll: async (params?: { date?: string; employeeId?: string }): Promise<AttendanceAllResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.date) queryParams.append('date', params.date);
+    if (params?.employeeId) queryParams.append('employeeId', params.employeeId);
+    
+    const queryString = queryParams.toString();
+    return fetchApi<AttendanceAllResponse>(`/attendance${queryString ? `?${queryString}` : ''}`, {
+      method: 'GET',
+    });
+  },
+
   // Check out with report
   checkout: async (data: AttendanceCheckoutPayload): Promise<AttendanceResponse> => {
     return fetchApi<AttendanceResponse>('/attendance/checkout', {
