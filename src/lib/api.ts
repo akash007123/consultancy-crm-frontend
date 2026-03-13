@@ -300,4 +300,46 @@ export const employeeApi = {
   },
 };
 
+// Attendance API functions
+export interface AttendanceCheckoutPayload {
+  employeeId: string;
+  checkInTime: string;
+  checkOutTime: string;
+  totalTime: string;
+  report: string;
+}
+
+export interface AttendanceResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    attendance: {
+      id: number;
+      employeeId: string;
+      checkInTime: string;
+      checkOutTime: string;
+      totalTime: string;
+      report: string;
+      createdAt: string;
+    };
+  };
+}
+
+export const attendanceApi = {
+  // Check out with report
+  checkout: async (data: AttendanceCheckoutPayload): Promise<AttendanceResponse> => {
+    return fetchApi<AttendanceResponse>('/attendance/checkout', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Get today's attendance for current employee
+  getTodayAttendance: async (): Promise<AttendanceResponse> => {
+    return fetchApi<AttendanceResponse>('/attendance/today', {
+      method: 'GET',
+    });
+  },
+};
+
 export default authApi;

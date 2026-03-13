@@ -95,6 +95,10 @@ export default function AddEmployeeForm() {
           if (response.success && response.data?.employee) {
             const emp = response.data.employee;
             setExistingEmployee(emp);
+            // Set existing profile photo if available
+            if (emp.profilePhoto) {
+              setProfilePhoto(emp.profilePhoto);
+            }
             setFormData({
               employeeCode: emp.employeeCode || '',
               firstName: emp.firstName || '',

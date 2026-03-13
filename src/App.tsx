@@ -36,6 +36,7 @@ import BeatPlanning from "./pages/crm/BeatPlanning";
 import MasterStock from "./pages/crm/MasterStock";
 import Invoice from "./pages/crm/Invoice";
 import Reports from "./pages/crm/Reports";
+import Calendar from "./pages/crm/Calendar";
 
 const queryClient = new QueryClient();
 
@@ -92,6 +93,7 @@ function AppRoutes() {
         <Route path="orders" element={<Orders />} />
         <Route path="invoices" element={<Invoice />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="calendar" element={<Calendar />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 
