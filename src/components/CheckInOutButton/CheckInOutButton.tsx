@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Clock, LogIn, LogOut } from 'lucide-react';
+import { Clock, LogIn, LogOut, AlertCircle } from 'lucide-react';
+import { attendanceApi } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
 
 // Format seconds to HH:MM:SS
 const formatTime = (totalSeconds: number): string => {
@@ -32,30 +34,101 @@ interface CheckInOutButtonProps {
     report: string;
   }) => Promise<unknown>;
   variant?: 'default' | 'compact';
+  employeeId?: string;
 }
 
-export default function CheckInOutButton({ onCheckout, variant = 'default' }: CheckInOutButtonProps) {
+export default function CheckInOutButton({ onCheckout, variant = 'default', employeeId }: CheckInOutButtonProps) {
+  const { user } = useAuthStore();
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [checkInTime, setCheckInTime] = useState<Date | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [report, setReport] = useState('');
+  const [hasCompletedToday, setHasCompletedToday] = useState(false);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
 
-  // Check for existing check-in on mount (page refresh handling)
+  // Get employee ID from props, auth store, or localStorage
+  const getEmployeeId = (): string | null => {
+    if (employeeId) return employeeId;
+    if (user?.id) return user.id;
+    return localStorage.getItem('employeeId');
+  };
+
+  // Check for existing check-in on mount (page refresh handling) AND check if already completed today
   useEffect(() => {
-    const storedCheckIn = localStorage.getItem('checkInTime');
-    if (storedCheckIn) {
-      const storedTime = new Date(storedCheckIn);
-      setCheckInTime(storedTime);
-      setIsCheckedIn(true);
+    // If no user and no employeeId in localStorage, wait for auth to load
+    const checkTodayStatus = async () => {
+      // Try to get employee ID from multiple sources
+      let empId = getEmployeeId();
       
-      // Calculate elapsed seconds from stored check-in time
-      const now = new Date();
-      const elapsed = Math.floor((now.getTime() - storedTime.getTime()) / 1000);
-      setElapsedSeconds(elapsed > 0 ? elapsed : 0);
-    }
-  }, []);
+      // If no employeeId yet, wait a moment for auth to load
+      if (!empId) {
+        // Wait for auth store to be populated
+        for (let i = 0; i < 5 && !empId; i++) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          empId = getEmployeeId();
+        }
+      }
+      
+      if (!empId) {
+        console.warn('No employee ID available for attendance check');
+        setIsLoadingStatus(false);
+        return;
+      }
+
+      try {
+        // Try to get today's attendance status from backend
+        const response = await attendanceApi.getTodayAttendance();
+        
+        if (response.success && response.data) {
+          const { hasCheckedIn, hasCompletedToday: completed, attendance } = response.data;
+          
+          // If already completed today, mark as done
+          if (completed) {
+            setHasCompletedToday(true);
+            setIsCheckedIn(false);
+            setCheckInTime(null);
+            localStorage.removeItem('checkInTime');
+            setIsLoadingStatus(false);
+            return;
+          }
+          
+          // If checked in but not completed, restore the session
+          if (hasCheckedIn && attendance) {
+            const storedCheckIn = localStorage.getItem('checkInTime');
+            if (storedCheckIn) {
+              const storedTime = new Date(storedCheckIn);
+              setCheckInTime(storedTime);
+              setIsCheckedIn(true);
+              
+              // Calculate elapsed seconds from stored check-in time
+              const now = new Date();
+              const elapsed = Math.floor((now.getTime() - storedTime.getTime()) / 1000);
+              setElapsedSeconds(elapsed > 0 ? elapsed : 0);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching today\'s attendance status:', error);
+        // Fallback to localStorage check
+        const storedCheckIn = localStorage.getItem('checkInTime');
+        if (storedCheckIn) {
+          const storedTime = new Date(storedCheckIn);
+          setCheckInTime(storedTime);
+          setIsCheckedIn(true);
+          
+          const now = new Date();
+          const elapsed = Math.floor((now.getTime() - storedTime.getTime()) / 1000);
+          setElapsedSeconds(elapsed > 0 ? elapsed : 0);
+        }
+      } finally {
+        setIsLoadingStatus(false);
+      }
+    };
+    
+    checkTodayStatus();
+  }, [user]);
 
   // Timer effect
   useEffect(() => {
@@ -75,6 +148,12 @@ export default function CheckInOutButton({ onCheckout, variant = 'default' }: Ch
   }, [isCheckedIn, checkInTime]);
 
   const handleCheckIn = useCallback(() => {
+    // Prevent check-in if already completed today
+    if (hasCompletedToday) {
+      alert('Your checkout already done for today. You can check in again from tomorrow.');
+      return;
+    }
+    
     const now = new Date();
     setCheckInTime(now);
     setIsCheckedIn(true);
@@ -82,7 +161,7 @@ export default function CheckInOutButton({ onCheckout, variant = 'default' }: Ch
     
     // Store check-in time in localStorage for persistence
     localStorage.setItem('checkInTime', now.toISOString());
-  }, []);
+  }, [hasCompletedToday]);
 
   const handleCheckOut = useCallback(() => {
     if (!checkInTime) return;
@@ -117,6 +196,9 @@ export default function CheckInOutButton({ onCheckout, variant = 'default' }: Ch
       setReport('');
       setShowReportModal(false);
       
+      // Mark as completed for today - prevents re check-in
+      setHasCompletedToday(true);
+      
       // Clear localStorage
       localStorage.removeItem('checkInTime');
     } catch (error) {
@@ -137,6 +219,36 @@ export default function CheckInOutButton({ onCheckout, variant = 'default' }: Ch
 
   // Compact button for navbar
   if (isCompact) {
+    // Show completed message when user has already checked out today
+    if (hasCompletedToday) {
+      return (
+        <Button
+          disabled={true}
+          className="bg-gray-400 text-white text-xs px-3 py-1.5 h-8 cursor-not-allowed"
+          title="You have already completed your attendance for today. Check-in will be available from tomorrow."
+        >
+          <span className="flex items-center gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5" />
+            Completed
+          </span>
+        </Button>
+      );
+    }
+
+    if (isLoadingStatus) {
+      return (
+        <Button
+          disabled={true}
+          className="bg-gray-400 text-white text-xs px-3 py-1.5 h-8 cursor-not-allowed"
+        >
+          <span className="flex items-center gap-1.5">
+            <span className="animate-spin">⟳</span>
+            Loading...
+          </span>
+        </Button>
+      );
+    }
+
     return (
       <>
         <Button
@@ -208,6 +320,40 @@ export default function CheckInOutButton({ onCheckout, variant = 'default' }: Ch
   }
 
   // Default full page view
+  
+  // Show completed message when user has already checked out today
+  if (hasCompletedToday) {
+    return (
+      <div className="flex flex-col items-center gap-4 p-6">
+        <div className="flex items-center justify-center w-24 h-24 rounded-full bg-gray-100 border-2 border-gray-300">
+          <AlertCircle className="w-12 h-12 text-gray-400" />
+        </div>
+        <h3 className="text-lg font-semibold text-muted-foreground">Attendance Completed</h3>
+        <p className="text-sm text-muted-foreground text-center max-w-md">
+          You have already checked out for today. Your attendance has been recorded.
+          <br />
+          <span className="text-xs">Check-in will be available from tomorrow.</span>
+        </p>
+      </div>
+    );
+  }
+
+  if (isLoadingStatus) {
+    return (
+      <div className="flex flex-col items-center gap-4 p-6">
+        <Button
+          disabled={true}
+          className="min-w-[200px] text-lg font-semibold px-8 py-6 bg-gray-400 cursor-not-allowed"
+        >
+          <span className="flex items-center gap-2">
+            <span className="animate-spin">⟳</span>
+            Loading...
+          </span>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="flex flex-col items-center gap-4 p-6">

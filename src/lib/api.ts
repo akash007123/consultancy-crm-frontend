@@ -322,6 +322,8 @@ export interface AttendanceResponse {
       report: string;
       createdAt: string;
     };
+    hasCheckedIn: boolean;
+    hasCompletedToday: boolean;
   };
 }
 
@@ -337,6 +339,9 @@ export interface AttendanceAllResponse {
       total_time: string | null;
       report: string | null;
       created_at: string;
+      first_name?: string;
+      last_name?: string;
+      department?: string;
     }[];
   };
 }
@@ -364,9 +369,31 @@ export const attendanceApi = {
 
   // Get today's attendance for current employee
   getTodayAttendance: async (): Promise<AttendanceResponse> => {
-    return fetchApi<AttendanceResponse>('/attendance/today', {
+    const token = getToken();
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+    };
+
+    // Get employee ID from localStorage (stored during login)
+    const employeeId = localStorage.getItem('employeeId');
+    if (employeeId) {
+      (headers as Record<string, string>)['x-employee-id'] = employeeId;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/attendance/today`, {
       method: 'GET',
+      headers,
     });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'An error occurred');
+    }
+
+    return data;
   },
 };
 

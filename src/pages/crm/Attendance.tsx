@@ -42,6 +42,7 @@ interface AttendanceRecord {
   id: number;
   employeeId: string;
   employeeName: string;
+  department?: string;
   checkIn: string | null;
   checkOut: string | null;
   totalTime: string;
@@ -55,10 +56,12 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Check if current user is an employee (not admin/manager/hr)
-  const isEmployee = user?.role === 'employee';
+  // Check user role
+  const userRole = user?.role;
+  const isEmployee = userRole === 'employee';
+  const isAdminOrHR = userRole === 'admin' || userRole === 'sub-admin' || userRole === 'hr' || userRole === 'manager';
   
-  // Fetch employees to map IDs to names
+  // Fetch employees to map IDs to names (needed for absent employee detection)
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
@@ -78,26 +81,37 @@ export default function AttendancePage() {
     fetchEmployees();
   }, []);
   
-  // Fetch attendance data
+  // Fetch attendance data based on role
   useEffect(() => {
     const fetchAttendance = async () => {
       try {
         setLoading(true);
         const today = new Date().toISOString().split('T')[0];
-        const response: AttendanceAllResponse = await attendanceApi.getAll({ date: today });
+        
+        // If employee, fetch only their attendance; otherwise fetch all
+        const params = isEmployee && user?.id 
+          ? { date: today, employeeId: user.id.toString() }
+          : { date: today };
+        
+        const response: AttendanceAllResponse = await attendanceApi.getAll(params);
         
         if (response.success && response.data?.attendance) {
-          // Map attendance records with employee names
+          // Map attendance records with employee names from joined query
           const records: AttendanceRecord[] = response.data.attendance.map(record => {
-            const employee = employees[record.employee_id];
-            const employeeName = employee 
-              ? `${employee.firstName} ${employee.lastName}` 
-              : `Employee ${record.employee_id}`;
+            // Use first_name/last_name from JOIN query, fallback to employees map
+            let employeeName = `Employee ${record.employee_id}`;
+            if (record.first_name && record.last_name) {
+              employeeName = `${record.first_name} ${record.last_name}`;
+            } else if (employees[record.employee_id]) {
+              const emp = employees[record.employee_id];
+              employeeName = `${emp.firstName} ${emp.lastName}`;
+            }
             
             return {
               id: record.id,
               employeeId: record.employee_id,
               employeeName,
+              department: record.department,
               checkIn: record.check_in_time,
               checkOut: record.check_out_time,
               totalTime: record.total_time || calculateHours(record.check_in_time, record.check_out_time),
@@ -122,7 +136,7 @@ export default function AttendancePage() {
     if (Object.keys(employees).length > 0) {
       fetchAttendance();
     }
-  }, [employees]);
+  }, [employees, isEmployee, user?.id]);
   
   // Handle checkout API call
   const handleCheckout = async (data: { checkInTime: string; checkOutTime: string; totalTime: string; report: string }) => {
@@ -144,47 +158,58 @@ export default function AttendancePage() {
     return response;
   };
   
-  // Get all active employees and determine who is absent
-  const activeEmployees = Object.values(employees).filter(e => e.status === 'active');
-  const checkedInEmployeeIds = new Set(attendance.map(a => a.employeeId));
-  const absentEmployeeIds = activeEmployees
-    .map(e => e.id.toString())
-    .filter(id => !checkedInEmployeeIds.has(id));
+  // For admin/HR view - calculate stats from all attendance
+  const getAllRecords = (): AttendanceRecord[] => {
+    if (isEmployee) {
+      return attendance;
+    }
+    
+    // For admin/HR - get all employees and determine absent ones
+    const activeEmployees = Object.values(employees).filter(e => e.status === 'active');
+    const checkedInEmployeeIds = new Set(attendance.map(a => a.employeeId));
+    const absentEmployeeIds = activeEmployees
+      .map(e => e.id.toString())
+      .filter(id => !checkedInEmployeeIds.has(id));
+    
+    // Create records for absent employees
+    const absentRecords: AttendanceRecord[] = absentEmployeeIds.map(id => {
+      const emp = employees[id];
+      return {
+        id: -parseInt(id),
+        employeeId: id,
+        employeeName: emp ? `${emp.firstName} ${emp.lastName}` : `Employee ${id}`,
+        department: emp?.department,
+        checkIn: null,
+        checkOut: null,
+        totalTime: '-',
+        status: 'absent' as const,
+      };
+    });
+    
+    return [...attendance, ...absentRecords].sort((a, b) => {
+      // Sort by status: present first, then late, then absent
+      const statusOrder = { present: 0, late: 1, absent: 2 };
+      return statusOrder[a.status] - statusOrder[b.status];
+    });
+  };
   
-  // Create records for absent employees
-  const absentRecords: AttendanceRecord[] = absentEmployeeIds.map(id => {
-    const emp = employees[id];
-    return {
-      id: -parseInt(id),
-      employeeId: id,
-      employeeName: emp ? `${emp.firstName} ${emp.lastName}` : `Employee ${id}`,
-      checkIn: null,
-      checkOut: null,
-      totalTime: '-',
-      status: 'absent' as const,
-    };
-  });
-  
-  // Calculate stats
-  const presentCount = attendance.filter(a => a.status === 'present').length;
-  const lateCount = attendance.filter(a => a.status === 'late').length;
-  const absentCount = absentRecords.length;
-  
-  const allRecords = [...attendance, ...absentRecords].sort((a, b) => {
-    // Sort by status: present first, then late, then absent
-    const statusOrder = { present: 0, late: 1, absent: 2 };
-    return statusOrder[a.status] - statusOrder[b.status];
-  });
+  // Calculate stats for admin/HR view
+  const allRecords = getAllRecords();
+  const presentCount = allRecords.filter(a => a.status === 'present').length;
+  const lateCount = allRecords.filter(a => a.status === 'late').length;
+  const absentCount = allRecords.filter(a => a.status === 'absent').length;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-heading font-bold text-foreground">Attendance</h1>
-        <p className="text-sm text-muted-foreground">Today's attendance overview</p>
+        <p className="text-sm text-muted-foreground">
+          {isEmployee ? 'My attendance record' : "Today's attendance overview"}
+        </p>
       </div>
 
-      {/* Employee Check In/Out Section */}
-      {isEmployee && (
+      {/* Employee Check In/Out Section - Only for employees */}
+      {/* {isEmployee && (
         <Card className="shadow-card border-primary/20">
           <CardContent className="p-6">
             <div className="text-center mb-4">
@@ -196,29 +221,31 @@ export default function AttendancePage() {
             <CheckInOutButton onCheckout={handleCheckout} variant="default" />
           </CardContent>
         </Card>
-      )}
+      )} */}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="shadow-card">
-          <CardContent className="p-4 text-center">
-            <p className="text-3xl font-heading font-bold text-green-600">{presentCount}</p>
-            <p className="text-xs text-muted-foreground">Present</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardContent className="p-4 text-center">
-            <p className="text-3xl font-heading font-bold text-yellow-600">{lateCount}</p>
-            <p className="text-xs text-muted-foreground">Late</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardContent className="p-4 text-center">
-            <p className="text-3xl font-heading font-bold text-red-600">{absentRecords.length}</p>
-            <p className="text-xs text-muted-foreground">Absent</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Stats Grid - Only for admin/HR */}
+      {isAdminOrHR && (
+        <div className="grid grid-cols-3 gap-4">
+          <Card className="shadow-card">
+            <CardContent className="p-4 text-center">
+              <p className="text-3xl font-heading font-bold text-green-600">{presentCount}</p>
+              <p className="text-xs text-muted-foreground">Present</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-card">
+            <CardContent className="p-4 text-center">
+              <p className="text-3xl font-heading font-bold text-yellow-600">{lateCount}</p>
+              <p className="text-xs text-muted-foreground">Late</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-card">
+            <CardContent className="p-4 text-center">
+              <p className="text-3xl font-heading font-bold text-red-600">{absentCount}</p>
+              <p className="text-xs text-muted-foreground">Absent</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Attendance Table */}
       <Card className="shadow-card">
@@ -232,7 +259,9 @@ export default function AttendancePage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left p-4 font-medium text-muted-foreground">Employee</th>
+                    {isAdminOrHR && (
+                      <th className="text-left p-4 font-medium text-muted-foreground">Employee</th>
+                    )}
                     <th className="text-left p-4 font-medium text-muted-foreground">Check In</th>
                     <th className="text-left p-4 font-medium text-muted-foreground hidden sm:table-cell">Check Out</th>
                     <th className="text-left p-4 font-medium text-muted-foreground hidden md:table-cell">Hours</th>
@@ -242,14 +271,16 @@ export default function AttendancePage() {
                 <tbody>
                   {allRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={isAdminOrHR ? 5 : 4} className="p-8 text-center text-muted-foreground">
                         No attendance records found for today
                       </td>
                     </tr>
                   ) : (
                     allRecords.map(a => (
                       <tr key={a.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                        <td className="p-4 font-medium text-foreground">{a.employeeName}</td>
+                        {isAdminOrHR && (
+                          <td className="p-4 font-medium text-foreground">{a.employeeName}</td>
+                        )}
                         <td className="p-4 text-muted-foreground">{formatTime(a.checkIn)}</td>
                         <td className="p-4 text-muted-foreground hidden sm:table-cell">{formatTime(a.checkOut)}</td>
                         <td className="p-4 text-muted-foreground hidden md:table-cell">

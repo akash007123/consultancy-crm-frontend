@@ -64,6 +64,8 @@ export const useAuthStore = create<AuthState>((set) => ({
             isAuthenticated: true, 
             isLoading: false 
           });
+          // Store user ID for attendance API calls
+          localStorage.setItem('employeeId', response.data.user.id.toString());
           return { success: true };
         }
       } catch {
@@ -81,6 +83,8 @@ export const useAuthStore = create<AuthState>((set) => ({
             isAuthenticated: true, 
             isLoading: false 
           });
+          // Store employee ID for attendance API calls
+          localStorage.setItem('employeeId', empResponse.data.employee.id.toString());
           return { success: true };
         }
       } catch {
@@ -128,6 +132,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Ignore logout errors - we still want to clear local state
     } finally {
       set({ user: null, isAuthenticated: false, isLoading: false });
+      // Clear employeeId from localStorage
+      localStorage.removeItem('employeeId');
     }
   },
 
