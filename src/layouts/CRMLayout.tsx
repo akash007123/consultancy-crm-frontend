@@ -1,14 +1,22 @@
+import { useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Clock, MapPin, Building2, ListChecks,
   Receipt, CalendarDays, Package, FileText, Settings, LogOut, ChevronLeft, ChevronRight, Briefcase, Menu,
-  Fuel, Wallet, Map, UserCheck, BarChart3, ArrowUpDown, Calendar1
+  Fuel, Wallet, Map, UserCheck, BarChart3, ArrowUpDown, Calendar1, User
 } from 'lucide-react';
-import { useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import CheckInOutButton from '@/components/CheckInOutButton/CheckInOutButton';
 import { attendanceApi } from '@/lib/api';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const menuItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/crm' },
@@ -35,9 +43,22 @@ const menuItems = [
 export default function CRMLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
   const { pathname } = useLocation();
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -49,9 +70,6 @@ export default function CRMLayout() {
 
   // Handle checkout API call
   const handleCheckout = async (data: {
-    checkInTime: string;
-    checkOutTime: string;
-    totalTime: string;
     report: string;
   }) => {
     if (!user?.id) {
@@ -60,7 +78,7 @@ export default function CRMLayout() {
     
     const payload = {
       employeeId: user.id,
-      ...data,
+      report: data.report,
     };
     
     const response = await attendanceApi.checkout(payload);
@@ -167,8 +185,50 @@ export default function CRMLayout() {
                 <CheckInOutButton onCheckout={handleCheckout} variant="compact" />
               </div>
             )}
-            <div className="w-8 h-8 rounded-full gradient-hero flex items-center justify-center text-xs font-bold text-primary-foreground">
-              {user?.name?.charAt(0) || 'U'}
+            {/* Profile Dropdown */}
+            <div ref={profileRef} className="relative">
+              <DropdownMenu open={profileOpen} onOpenChange={setProfileOpen}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="w-8 h-8 rounded-full gradient-hero flex items-center justify-center text-xs font-bold text-primary-foreground hover:opacity-90 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background overflow-hidden"
+                    onClick={() => setProfileOpen(!profileOpen)}
+                  >
+                    {user?.profilePhoto ? (
+                      <img 
+                        src={user.profilePhoto} 
+                        alt={user.name} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      user?.name?.charAt(0) || 'U'
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56" sideOffset={8}>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{user?.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground capitalize">
+                        {user?.role}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => { setProfileOpen(false); navigate('/crm/profile'); }} className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setProfileOpen(false); navigate('/crm/settings'); }} className="cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 focus:text-red-600">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </header>

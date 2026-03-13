@@ -303,9 +303,6 @@ export const employeeApi = {
 // Attendance API functions
 export interface AttendanceCheckoutPayload {
   employeeId: string;
-  checkInTime: string;
-  checkOutTime: string;
-  totalTime: string;
   report: string;
 }
 
@@ -360,7 +357,7 @@ export const attendanceApi = {
   },
 
   // Check in
-  checkIn: async (data: { employeeId: string; checkInTime: string }): Promise<AttendanceResponse> => {
+  checkIn: async (data: { employeeId: string }): Promise<AttendanceResponse> => {
     return fetchApi<AttendanceResponse>('/attendance/checkin', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -376,9 +373,9 @@ export const attendanceApi = {
   },
 
   // Get today's attendance for current employee
-  getTodayAttendance: async (): Promise<AttendanceResponse> => {
+  getTodayAttendance: async (explicitEmployeeId?: string): Promise<AttendanceResponse> => {
     const token = getToken();
-    const employeeId = localStorage.getItem('employeeId');
+    const employeeId = explicitEmployeeId || localStorage.getItem('employeeId');
     
     console.log('getTodayAttendance - token:', token ? 'exists' : 'none', 'employeeId:', employeeId);
     

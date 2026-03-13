@@ -139,14 +139,14 @@ export default function AttendancePage() {
   }, [employees, isEmployee, user?.id]);
   
   // Handle checkout API call
-  const handleCheckout = async (data: { checkInTime: string; checkOutTime: string; totalTime: string; report: string }) => {
+  const handleCheckout = async (data: { report: string }) => {
     if (!user?.id) {
       throw new Error('User not authenticated');
     }
     
     const payload = {
       employeeId: user.id.toString(),
-      ...data,
+      report: data.report,
     };
     
     const response = await attendanceApi.checkout(payload);

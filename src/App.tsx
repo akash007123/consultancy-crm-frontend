@@ -31,6 +31,7 @@ import Expenses from "./pages/crm/Expenses";
 import Stock from "./pages/crm/Stock";
 import Orders from "./pages/crm/Orders";
 import Settings from "./pages/crm/Settings";
+import Profile from "./pages/crm/Profile";
 import HRPanel from "./pages/crm/HRPanel";
 import TADA from "./pages/crm/TADA";
 import PetrolAllowance from "./pages/crm/PetrolAllowance";
@@ -99,6 +100,7 @@ function AppRoutes() {
         <Route path="reports" element={<Reports />} />
         <Route path="calendar" element={<Calendar />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

@@ -22,15 +22,12 @@ const formatDateTime = (date: Date): string => {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false,
+    hour12: true,
   });
 };
 
 interface CheckInOutButtonProps {
   onCheckout: (data: {
-    checkInTime: string;
-    checkOutTime: string;
-    totalTime: string;
     report: string;
   }) => Promise<unknown>;
   variant?: 'default' | 'compact';
@@ -82,7 +79,7 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
 
       try {
         // Try to get today's attendance status from backend
-        const response = await attendanceApi.getTodayAttendance();
+        const response = await attendanceApi.getTodayAttendance(empId);
         console.log('Today attendance response:', response);
 
         if (response.success && response.data) {
@@ -102,7 +99,10 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
 
           // If checked in but not completed, restore the session
           if (hasCheckedIn && attendance) {
-            const storedCheckIn = localStorage.getItem('checkInTime');
+            // Prefer backend check-in time for accurate sync
+            const backendCheckInTime = attendance.checkInTime || (attendance as any).check_in_time;
+            const storedCheckIn = backendCheckInTime || localStorage.getItem('checkInTime');
+            
             if (storedCheckIn) {
               const storedTime = new Date(storedCheckIn);
               setCheckInTime(storedTime);
@@ -173,18 +173,21 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
 
     try {
       // Call backend API to record check-in
-      await attendanceApi.checkIn({
+      const response = await attendanceApi.checkIn({
         employeeId: empId,
-        checkInTime,
       });
 
+      // Use server's exact check-in time if available
+      const serverTimeStr = (response.data?.attendance as any)?.checkInTime;
+      const actualCheckInTime = serverTimeStr ? new Date(serverTimeStr) : now;
+
       // Update local state
-      setCheckInTime(now);
+      setCheckInTime(actualCheckInTime);
       setIsCheckedIn(true);
       setElapsedSeconds(0);
 
       // Store check-in time in localStorage for persistence
-      localStorage.setItem('checkInTime', now.toISOString());
+      localStorage.setItem('checkInTime', actualCheckInTime.toISOString());
     } catch (error) {
       console.error('Check-in failed:', error);
       // Even if API fails, allow local check-in for offline resilience
@@ -217,9 +220,6 @@ export default function CheckInOutButton({ onCheckout, variant = 'default', empl
 
     try {
       await onCheckout({
-        checkInTime: checkInTime.toISOString(),
-        checkOutTime: now.toISOString(),
-        totalTime,
         report: report.trim(),
       });
 

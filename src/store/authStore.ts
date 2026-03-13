@@ -11,6 +11,7 @@ export interface User {
   role: UserRole;
   email?: string;
   isEmployee?: boolean;
+  profilePhoto?: string | null;
 }
 
 // Convert backend employee to frontend user
@@ -21,6 +22,7 @@ const toFrontendUserFromEmployee = (employee: BackendEmployee): User => ({
   role: employee.role,
   email: employee.email,
   isEmployee: true,
+  profilePhoto: employee.profilePhoto,
 });
 
 // Convert backend user to frontend user
@@ -171,6 +173,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           role: emp.role as UserRole,
           email: emp.email,
           isEmployee: true,
+          profilePhoto: emp.profilePhoto,
         };
         set({ 
           user, 
