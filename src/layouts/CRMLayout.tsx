@@ -75,18 +75,18 @@ export default function CRMLayout() {
     if (!user?.id) {
       throw new Error('User not authenticated');
     }
-    
+
     const payload = {
       employeeId: user.id,
       report: data.report,
     };
-    
+
     const response = await attendanceApi.checkout(payload);
-    
+
     if (!response.success) {
       throw new Error(response.message || 'Failed to submit checkout');
     }
-    
+
     return response;
   };
 
@@ -99,7 +99,7 @@ export default function CRMLayout() {
         {!collapsed && <span className="font-heading font-bold text-sidebar-foreground">HireEdge CRM</span>}
       </div>
 
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-hide">
         {menuItems.map(item => {
           const active = pathname === item.path;
           return (
@@ -107,11 +107,10 @@ export default function CRMLayout() {
               key={item.path}
               to={item.path}
               onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                active
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active
                   ? 'bg-sidebar-primary text-sidebar-primary-foreground'
                   : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-              }`}
+                }`}
             >
               <item.icon className="w-4.5 h-4.5 shrink-0" />
               {!collapsed && <span>{item.label}</span>}
@@ -139,12 +138,11 @@ export default function CRMLayout() {
   );
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="h-screen overflow-hidden flex bg-background">
       {/* Desktop sidebar */}
       <aside
-        className={`hidden lg:flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ${
-          collapsed ? 'w-16' : 'w-64'
-        }`}
+        className={`hidden lg:flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'
+          }`}
       >
         <SidebarContent />
         <button
@@ -167,8 +165,8 @@ export default function CRMLayout() {
       )}
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-border bg-card flex items-center px-4 gap-3">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <header className="h-14 shrink-0 border-b border-border bg-card flex items-center px-4 gap-3">
           <Button
             variant="ghost"
             size="icon"
@@ -194,9 +192,9 @@ export default function CRMLayout() {
                     onClick={() => setProfileOpen(!profileOpen)}
                   >
                     {user?.profilePhoto ? (
-                      <img 
-                        src={user.profilePhoto} 
-                        alt={user.name} 
+                      <img
+                        src={user.profilePhoto}
+                        alt={user.name}
                         className="w-full h-full object-cover"
                       />
                     ) : (
