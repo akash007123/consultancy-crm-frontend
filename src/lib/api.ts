@@ -599,6 +599,85 @@ export const visitsApi = {
   },
 };
 
+// Candidate types
+export type CandidateStatus = 'Shortlisted' | 'Pending' | 'Interview Scheduled' | 'Applied' | 'Offer Sent' | 'Accepted Offer';
+
+export interface Candidate {
+  id: number;
+  name: string;
+  position: string;
+  status: CandidateStatus;
+  email: string;
+  phone: string;
+  resumeUrl: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CandidateApiResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    candidates?: Candidate[];
+    candidate?: Candidate;
+  };
+}
+
+// Candidate API functions
+export const candidateApi = {
+  // Get all candidates
+  getAll: async (): Promise<CandidateApiResponse> => {
+    return fetchApi<CandidateApiResponse>('/candidates', {
+      method: 'GET',
+    });
+  },
+
+  // Get single candidate by ID
+  getById: async (id: number): Promise<CandidateApiResponse> => {
+    return fetchApi<CandidateApiResponse>(`/candidates/${id}`, {
+      method: 'GET',
+    });
+  },
+
+  // Create new candidate
+  create: async (data: {
+    name: string;
+    position: string;
+    status?: CandidateStatus;
+    email?: string;
+    phone?: string;
+    notes?: string;
+  }): Promise<CandidateApiResponse> => {
+    return fetchApi<CandidateApiResponse>('/candidates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Update candidate
+  update: async (id: number, data: Partial<{
+    name: string;
+    position: string;
+    status: CandidateStatus;
+    email: string;
+    phone: string;
+    notes: string;
+  }>): Promise<CandidateApiResponse> => {
+    return fetchApi<CandidateApiResponse>(`/candidates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Delete candidate
+  delete: async (id: number): Promise<{ success: boolean; message: string }> => {
+    return fetchApi<{ success: boolean; message: string }>(`/candidates/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 // Client types
 export interface BackendClient {
   id: number;
