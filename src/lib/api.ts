@@ -344,6 +344,29 @@ export interface AttendanceAllResponse {
   };
 }
 
+// Attendance types
+export interface AttendanceRecord {
+  id: number | null;
+  date: string;
+  checkIn: string;
+  checkOut: string;
+  totalTime: string;
+  status: 'Present' | 'Half Day' | 'Absent';
+  report: string;
+}
+
+export interface EmployeeAttendanceResponse {
+  success: boolean;
+  data?: {
+    employee: {
+      id: number;
+      name: string;
+    };
+    attendance: AttendanceRecord[];
+  };
+  message?: string;
+}
+
 export const attendanceApi = {
   // Get all attendance records (for admin/manager)
   getAll: async (params?: { date?: string; employeeId?: string; fromDate?: string; toDate?: string }): Promise<AttendanceAllResponse> => {
@@ -355,6 +378,13 @@ export const attendanceApi = {
     
     const queryString = queryParams.toString();
     return fetchApi<AttendanceAllResponse>(`/attendance${queryString ? `?${queryString}` : ''}`, {
+      method: 'GET',
+    });
+  },
+
+  // Get employee attendance by month and year
+  getEmployeeAttendance: async (employeeId: number, month: number, year: number): Promise<EmployeeAttendanceResponse> => {
+    return fetchApi<EmployeeAttendanceResponse>(`/attendance/employee/${employeeId}?month=${month}&year=${year}`, {
       method: 'GET',
     });
   },

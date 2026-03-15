@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -19,7 +19,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Calendar as CalendarIcon, Clock, User, Tag, X } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, Clock, User, Tag, X, Loader2 } from 'lucide-react';
+import AttendanceFilter, { ViewType } from '@/components/AttendanceFilter';
+import AttendanceModal from '@/components/AttendanceModal';
+import { attendanceApi, AttendanceRecord } from '@/lib/api';
 
 // Event type definition
 interface CalendarEvent {
@@ -138,6 +141,35 @@ const getEventTypeLabel = (type?: string) => {
   }
 };
 
+// Attendance event type for calendar
+interface AttendanceCalendarEvent {
+  id: string;
+  title: string;
+  start: Date | string;
+  end?: Date | string;
+  allDay?: boolean;
+  backgroundColor?: string;
+  borderColor?: string;
+  extendedProps: {
+    type: 'attendance';
+    attendance: AttendanceRecord;
+  };
+}
+
+// Get color for attendance status
+const getAttendanceStatusColor = (status: string) => {
+  switch (status) {
+    case 'Present':
+      return { bg: '#10b981', border: '#10b981' };
+    case 'Half Day':
+      return { bg: '#f59e0b', border: '#f59e0b' };
+    case 'Absent':
+      return { bg: '#ef4444', border: '#ef4444' };
+    default:
+      return { bg: '#6b7280', border: '#6b7280' };
+  }
+};
+
 export default function Calendar() {
   const calendarRef = useRef<FullCalendar>(null);
   const [events, setEvents] = useState<CalendarEvent[]>(sampleEvents);
@@ -152,6 +184,93 @@ export default function Calendar() {
     assignedTo: '',
     location: ''
   });
+
+  // Attendance state
+  const [viewType, setViewType] = useState<ViewType>('events');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [employeeName, setEmployeeName] = useState<string>('');
+  const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [attendanceEvents, setAttendanceEvents] = useState<AttendanceCalendarEvent[]>([]);
+  const [selectedAttendance, setSelectedAttendance] = useState<AttendanceRecord | null>(null);
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Fetch attendance when employee is selected and view is attendance
+  useEffect(() => {
+    if (viewType === 'attendance' && selectedEmployeeId) {
+      fetchAttendance();
+    }
+  }, [viewType, selectedEmployeeId, currentMonth, currentYear]);
+
+  // Fetch attendance data
+  const fetchAttendance = async () => {
+    if (!selectedEmployeeId) return;
+
+    console.log('Fetching attendance for employee:', selectedEmployeeId, 'month:', currentMonth, 'year:', currentYear);
+
+    try {
+      setIsLoadingAttendance(true);
+      const response = await attendanceApi.getEmployeeAttendance(
+        Number(selectedEmployeeId),
+        currentMonth,
+        currentYear
+      );
+
+      console.log('Attendance response:', response);
+
+      if (response.success && response.data) {
+        setAttendanceRecords(response.data.attendance);
+        setEmployeeName(response.data.employee.name);
+        convertAttendanceToEvents(response.data.attendance);
+        console.log('Attendance events set:', response.data.attendance.length);
+      }
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+    } finally {
+      setIsLoadingAttendance(false);
+    }
+  };
+
+  // Convert attendance records to calendar events
+  const convertAttendanceToEvents = (records: AttendanceRecord[]) => {
+    const events: AttendanceCalendarEvent[] = records
+      .map(record => {
+        const colors = getAttendanceStatusColor(record.status);
+        return {
+          id: `attendance-${record.date}`,
+          title: record.status === 'Absent' ? 'Absent' : `${record.status} - ${record.totalTime}`,
+          start: record.date,
+          allDay: true,
+          backgroundColor: colors.bg,
+          borderColor: colors.border,
+          extendedProps: {
+            type: 'attendance' as const,
+            attendance: record,
+          },
+        };
+      });
+    setAttendanceEvents(events);
+  };
+
+  // Handle calendar date change (month/year)
+  const handleDatesSet = (dateInfo: { start: Date; end: Date }) => {
+    setCurrentMonth(dateInfo.start.getMonth() + 1);
+    setCurrentYear(dateInfo.start.getFullYear());
+  };
+
+  // Handle attendance event click
+  const handleAttendanceEventClick = (info: { event: { extendedProps: { attendance: AttendanceRecord } } }) => {
+    setSelectedAttendance(info.event.extendedProps.attendance);
+    setIsAttendanceModalOpen(true);
+  };
+
+  // Refresh handler for filter
+  const handleRefresh = useCallback(() => {
+    fetchAttendance();
+  }, [selectedEmployeeId, currentMonth, currentYear]);
 
   // Handle date click
   const handleDateClick = (info: { date: Date; allDay: boolean }) => {
@@ -241,8 +360,40 @@ export default function Calendar() {
   // Custom event content
   const eventContent = (eventInfo: { event: { 
     title: string; 
-    extendedProps: { type?: string };
+    extendedProps: { type?: string; attendance?: AttendanceRecord };
   } }) => {
+    // Handle attendance events
+    if (eventInfo.event.extendedProps.type === 'attendance') {
+      const attendance = eventInfo.event.extendedProps.attendance;
+      if (attendance) {
+        return (
+          <div className="flex flex-col gap-0.5 overflow-hidden p-1">
+            <div className="flex items-center gap-1">
+              <span className="truncate text-xs font-medium text-white">
+                {attendance.status === 'Absent' ? 'Absent' : attendance.status}
+              </span>
+            </div>
+            {attendance.status !== 'Absent' && (
+              <>
+                <div className="text-[10px] text-white/90 truncate">
+                  Check In: {attendance.checkIn || '-'}
+                </div>
+                <div className="text-[10px] text-white/90 truncate">
+                  Check Out: {attendance.checkOut || '-'}
+                </div>
+                {attendance.totalTime && (
+                  <div className="text-[10px] text-white/90 truncate mt-0.5">
+                    Total: {attendance.totalTime}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        );
+      }
+    }
+    
+    // Handle regular calendar events
     return (
       <div className="flex items-center gap-1 overflow-hidden">
         <div className={`w-2 h-2 rounded-full shrink-0 ${getEventTypeColor(eventInfo.event.extendedProps.type)}`} />
@@ -259,11 +410,34 @@ export default function Calendar() {
           <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
           <p className="text-muted-foreground">Manage your events, meetings, and tasks</p>
         </div>
-        <Button onClick={() => setIsAddEventOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add Event
-        </Button>
+        {viewType === 'events' && (
+          <Button onClick={() => setIsAddEventOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Add Event
+          </Button>
+        )}
       </div>
+
+      {/* Attendance Filter */}
+      <Card>
+        <CardContent className="pt-4">
+          <AttendanceFilter
+            viewType={viewType}
+            onViewTypeChange={setViewType}
+            selectedEmployeeId={selectedEmployeeId}
+            onEmployeeChange={setSelectedEmployeeId}
+            onRefresh={handleRefresh}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Loading Indicator */}
+      {viewType === 'attendance' && isLoadingAttendance && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <span className="ml-2 text-muted-foreground">Loading attendance...</span>
+        </div>
+      )}
 
       {/* Calendar Card */}
       <Card className="overflow-hidden">
@@ -278,17 +452,24 @@ export default function Calendar() {
                 center: 'title',
                 right: 'dayGridMonth,timeGridWeek,timeGridDay'
               }}
-              events={events}
-              dateClick={handleDateClick}
-              eventClick={handleEventClick}
+              events={viewType === 'attendance' && selectedEmployeeId ? attendanceEvents : events}
+              dateClick={viewType === 'events' ? handleDateClick : undefined}
+              eventClick={(info) => {
+                if (info.event.extendedProps.type === 'attendance') {
+                  handleAttendanceEventClick(info as any);
+                } else {
+                  handleEventClick(info as any);
+                }
+              }}
               eventContent={eventContent}
               height="auto"
               aspectRatio={1.5}
               eventDisplay="block"
               dayMaxEvents={3}
               moreLinkClick="popover"
-              selectable={true}
-              editable={true}
+              selectable={viewType === 'events'}
+              editable={viewType === 'events'}
+              datesSet={handleDatesSet}
               eventTimeFormat={{
                 hour: '2-digit',
                 minute: '2-digit',
@@ -300,7 +481,8 @@ export default function Calendar() {
       </Card>
 
       {/* Upcoming Events Sidebar - Quick View */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {viewType === 'events' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Today's Events</CardTitle>
@@ -372,6 +554,7 @@ export default function Calendar() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Event Details Dialog */}
       <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
@@ -532,6 +715,14 @@ export default function Calendar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Attendance Modal */}
+      <AttendanceModal
+        isOpen={isAttendanceModalOpen}
+        onClose={() => setIsAttendanceModalOpen(false)}
+        attendance={selectedAttendance}
+        employeeName={employeeName}
+      />
     </div>
   );
 }
