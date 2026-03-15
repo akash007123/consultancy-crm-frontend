@@ -203,7 +203,7 @@ export default function VisitModal({ open, onOpenChange, onSuccess, visit }: Vis
                 <SelectContent>
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={String(client.id)}>
-                      {client.name}
+                      {client.name} {client.companyName ? `(${client.companyName})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>

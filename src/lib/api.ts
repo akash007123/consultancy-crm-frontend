@@ -482,6 +482,7 @@ export interface VisitApiResponse {
 export interface ClientItem {
   id: number;
   name: string;
+  companyName: string;
   email: string;
   mobile: string;
 }
@@ -594,6 +595,99 @@ export const visitsApi = {
   getEmployees: async (): Promise<EmployeesListResponse> => {
     return fetchApi<EmployeesListResponse>('/visits/employees/list', {
       method: 'GET',
+    });
+  },
+};
+
+// Client types
+export interface BackendClient {
+  id: number;
+  clientName: string;
+  companyName: string;
+  mobile: string;
+  email: string | null;
+  industry: string | null;
+  address: string | null;
+  profilePhoto: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Client API response types
+interface ClientApiResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    client: BackendClient;
+    clients: BackendClient[];
+    total: number;
+  };
+}
+
+// Clients API functions
+export const clientsApi = {
+  // Get all clients with optional search
+  getAll: async (params?: { search?: string }): Promise<ClientApiResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    
+    const queryString = queryParams.toString();
+    return fetchApi<ClientApiResponse>(`/clients${queryString ? `?${queryString}` : ''}`, {
+      method: 'GET',
+    });
+  },
+
+  // Get single client by ID
+  getById: async (id: number): Promise<ClientApiResponse> => {
+    return fetchApi<ClientApiResponse>(`/clients/${id}`, {
+      method: 'GET',
+    });
+  },
+
+  // Create new client
+  create: async (data: {
+    clientName: string;
+    companyName: string;
+    mobile: string;
+    email?: string;
+    industry?: string;
+    address?: string;
+    profilePhoto?: string;
+  }): Promise<ClientApiResponse> => {
+    return fetchApi<ClientApiResponse>('/clients', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Update client
+  update: async (id: number, data: Partial<{
+    clientName: string;
+    companyName: string;
+    mobile: string;
+    email: string;
+    industry: string;
+    address: string;
+    profilePhoto: string;
+  }>): Promise<ClientApiResponse> => {
+    return fetchApi<ClientApiResponse>(`/clients/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Delete client
+  delete: async (id: number): Promise<{ success: boolean; message: string }> => {
+    return fetchApi<{ success: boolean; message: string }>(`/clients/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Toggle client active status
+  toggleStatus: async (id: number): Promise<ClientApiResponse> => {
+    return fetchApi<ClientApiResponse>(`/clients/${id}/toggle-status`, {
+      method: 'PATCH',
     });
   },
 };
