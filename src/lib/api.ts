@@ -692,4 +692,94 @@ export const clientsApi = {
   },
 };
 
+// Task types
+export type TaskPriority = 'high' | 'medium' | 'low';
+export type TaskStatus = 'in-progress' | 'pending' | 'completed';
+
+export interface Task {
+  id: number;
+  title: string;
+  description: string | null;
+  priority: TaskPriority;
+  assigneeId: number;
+  assigneeName: string;
+  assignDate: string;
+  dueDate: string;
+  status: TaskStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Task API response types
+interface TaskApiResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    tasks?: Task[];
+    task?: Task;
+    total?: number;
+  };
+}
+
+// Task API functions
+export const tasksApi = {
+  // Get all tasks
+  getAll: async (): Promise<TaskApiResponse> => {
+    return fetchApi<TaskApiResponse>('/tasks', {
+      method: 'GET',
+    });
+  },
+
+  // Get single task by ID
+  getById: async (id: number): Promise<TaskApiResponse> => {
+    return fetchApi<TaskApiResponse>(`/tasks/${id}`, {
+      method: 'GET',
+    });
+  },
+
+  // Create new task
+  create: async (data: {
+    title: string;
+    description?: string;
+    priority: TaskPriority;
+    assigneeId: number;
+    dueDate: string;
+    status?: TaskStatus;
+  }): Promise<TaskApiResponse> => {
+    return fetchApi<TaskApiResponse>('/tasks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Update task
+  update: async (id: number, data: Partial<{
+    title: string;
+    description: string;
+    priority: TaskPriority;
+    assigneeId: number;
+    dueDate: string;
+    status: TaskStatus;
+  }>): Promise<TaskApiResponse> => {
+    return fetchApi<TaskApiResponse>(`/tasks/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Delete task
+  delete: async (id: number): Promise<{ success: boolean; message: string }> => {
+    return fetchApi<{ success: boolean; message: string }>(`/tasks/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Get employees for dropdown
+  getEmployees: async (): Promise<EmployeesListResponse> => {
+    return fetchApi<EmployeesListResponse>('/employees', {
+      method: 'GET',
+    });
+  },
+};
+
 export default authApi;

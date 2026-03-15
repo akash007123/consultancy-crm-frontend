@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, Briefcase, FileText } from 'lucide-react';
+import { Calendar, MapPin, Briefcase, FileText, UserPlus } from 'lucide-react';
 
 const jobs = [
     {
@@ -16,6 +16,7 @@ const jobs = [
         location: 'Remote',
         experience: '3-5 Years',
         description: 'We are looking for an experienced Frontend Developer proficient in React, TypeScript, and modern CSS frameworks to lead our web application development. You will be responsible for creating responsive, fast, and accessible user interfaces that provide an exceptional experience for our users.',
+        position:'3',
     },
     {
         id: 2,
@@ -25,6 +26,7 @@ const jobs = [
         location: 'Bangalore, India',
         experience: '2-4 Years',
         description: 'Join our backend team to build scalable APIs using Node.js, Express, and MySQL. Experience with microservices architecture is a plus. You will work closely with frontend developers and product managers to define API contracts and implement business logic securely.',
+        position:'3',
     },
     {
         id: 3,
@@ -34,6 +36,7 @@ const jobs = [
         location: 'Mumbai, India',
         experience: '5+ Years',
         description: 'Seeking a dynamic HR Manager to handle recruitment, employee relations, and organizational development for our growing team. You will be responsible for creating an inclusive workplace and managing the entire employee lifecycle from onboarding to offboarding.',
+        position:'3',
     },
     {
         id: 4,
@@ -43,6 +46,7 @@ const jobs = [
         location: 'Remote',
         experience: '1-3 Years',
         description: 'Looking for a creative UI/UX designer to craft intuitive and beautiful user experiences for our enterprise consultancy CRM products. You should be proficient in Figma, understanding user journeys, and creating responsive designs that look modern and premium.',
+        position:'3',
     }
 ];
 
@@ -104,6 +108,10 @@ export default function Jobs() {
                                             <Briefcase className="w-4 h-4 mr-1.5 text-muted-foreground/70" />
                                             {job.experience}
                                         </span>
+                                        <span className="flex items-center">
+                                            <UserPlus className="w-4 h-4 mr-1.5 text-muted-foreground/70" />
+                                            {job.position}
+                                        </span>
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="flex-grow pb-6">
@@ -158,6 +166,10 @@ export default function Jobs() {
                                         <span className="flex items-center font-medium">
                                             <Briefcase className="w-4 h-4 mr-1.5 text-primary" />
                                             {selectedJob.experience}
+                                        </span>
+                                        <span className="flex items-center font-medium">
+                                            <UserPlus className="w-4 h-4 mr-1.5 text-primary" />
+                                            {selectedJob.position}
                                         </span>
                                     </DialogDescription>
                                 </DialogHeader>
