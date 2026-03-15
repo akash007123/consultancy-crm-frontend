@@ -94,7 +94,8 @@ async function fetchApi<T>(
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || 'An error occurred');
+    const errorData = data as { message?: string; error?: string };
+    throw new Error(errorData.message || errorData.error || 'An error occurred');
   }
 
   return data;
@@ -434,6 +435,166 @@ export const attendanceApi = {
     }
 
     return data;
+  },
+};
+
+// Visit types
+export interface VisitListItem {
+  id: number;
+  clientId: number;
+  clientName: string;
+  employeeId: number;
+  employeeName: string;
+  date: string;
+  checkIn: string;
+  checkOut: string | null;
+  location: string;
+  remarks: string | null;
+}
+
+export interface VisitDetail {
+  id: number;
+  clientId: number;
+  clientName: string;
+  employeeId: number;
+  employeeName: string;
+  date: string;
+  checkInTime: string;
+  checkOutTime: string | null;
+  location: string;
+  remarks: string | null;
+  purpose: string | null;
+  outcome: string | null;
+  nextFollowup: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VisitApiResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    visits?: VisitListItem[];
+    visit?: VisitDetail;
+  };
+}
+
+export interface ClientItem {
+  id: number;
+  name: string;
+  email: string;
+  mobile: string;
+}
+
+export interface EmployeeListItem {
+  id: number;
+  employeeCode: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  department: string;
+  status: string;
+}
+
+export interface ClientsResponse {
+  success: boolean;
+  data?: {
+    clients: ClientItem[];
+  };
+}
+
+export interface EmployeesListResponse {
+  success: boolean;
+  data?: {
+    employees: EmployeeListItem[];
+  };
+}
+
+// Visits API functions
+export const visitsApi = {
+  // Get all visits with optional filters
+  getAll: async (params?: { 
+    startDate?: string; 
+    endDate?: string; 
+    employeeId?: string; 
+    clientId?: string 
+  }): Promise<VisitApiResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.employeeId) queryParams.append('employeeId', params.employeeId);
+    if (params?.clientId) queryParams.append('clientId', params.clientId);
+    
+    const queryString = queryParams.toString();
+    return fetchApi<VisitApiResponse>(`/visits${queryString ? `?${queryString}` : ''}`, {
+      method: 'GET',
+    });
+  },
+
+  // Get single visit by ID
+  getById: async (id: number): Promise<VisitApiResponse> => {
+    return fetchApi<VisitApiResponse>(`/visits/${id}`, {
+      method: 'GET',
+    });
+  },
+
+  // Create new visit
+  create: async (data: {
+    clientId: number;
+    employeeId: number;
+    date: string;
+    checkInTime: string;
+    checkOutTime?: string;
+    location: string;
+    remarks?: string;
+    purpose?: string;
+    outcome?: string;
+    nextFollowup?: string;
+  }): Promise<VisitApiResponse> => {
+    return fetchApi<VisitApiResponse>('/visits', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Update visit
+  update: async (id: number, data: Partial<{
+    clientId: number;
+    employeeId: number;
+    date: string;
+    checkInTime: string;
+    checkOutTime: string;
+    location: string;
+    remarks: string;
+    purpose: string;
+    outcome: string;
+    nextFollowup: string;
+  }>): Promise<VisitApiResponse> => {
+    return fetchApi<VisitApiResponse>(`/visits/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Delete visit
+  delete: async (id: number): Promise<{ success: boolean; message: string }> => {
+    return fetchApi<{ success: boolean; message: string }>(`/visits/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Get clients list for dropdown
+  getClients: async (): Promise<ClientsResponse> => {
+    return fetchApi<ClientsResponse>('/visits/clients/list', {
+      method: 'GET',
+    });
+  },
+
+  // Get employees list for dropdown
+  getEmployees: async (): Promise<EmployeesListResponse> => {
+    return fetchApi<EmployeesListResponse>('/visits/employees/list', {
+      method: 'GET',
+    });
   },
 };
 
