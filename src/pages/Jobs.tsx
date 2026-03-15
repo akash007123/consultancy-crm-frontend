@@ -1,61 +1,63 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, Briefcase, FileText, UserPlus } from 'lucide-react';
-
-const jobs = [
-    {
-        id: 1,
-        title: 'Senior Frontend Developer',
-        date: '2026-03-10',
-        type: 'Full-time',
-        location: 'Remote',
-        experience: '3-5 Years',
-        description: 'We are looking for an experienced Frontend Developer proficient in React, TypeScript, and modern CSS frameworks to lead our web application development. You will be responsible for creating responsive, fast, and accessible user interfaces that provide an exceptional experience for our users.',
-        position:'3',
-    },
-    {
-        id: 2,
-        title: 'Backend Engineer (Node.js)',
-        date: '2026-03-12',
-        type: 'Full-time',
-        location: 'Bangalore, India',
-        experience: '2-4 Years',
-        description: 'Join our backend team to build scalable APIs using Node.js, Express, and MySQL. Experience with microservices architecture is a plus. You will work closely with frontend developers and product managers to define API contracts and implement business logic securely.',
-        position:'3',
-    },
-    {
-        id: 3,
-        title: 'HR Manager',
-        date: '2026-03-05',
-        type: 'Full-time',
-        location: 'Mumbai, India',
-        experience: '5+ Years',
-        description: 'Seeking a dynamic HR Manager to handle recruitment, employee relations, and organizational development for our growing team. You will be responsible for creating an inclusive workplace and managing the entire employee lifecycle from onboarding to offboarding.',
-        position:'3',
-    },
-    {
-        id: 4,
-        title: 'UI/UX Designer',
-        date: '2026-03-13',
-        type: 'Contract',
-        location: 'Remote',
-        experience: '1-3 Years',
-        description: 'Looking for a creative UI/UX designer to craft intuitive and beautiful user experiences for our enterprise consultancy CRM products. You should be proficient in Figma, understanding user journeys, and creating responsive designs that look modern and premium.',
-        position:'3',
-    }
-];
+import { Calendar, MapPin, Briefcase, FileText, UserPlus, Loader2 } from 'lucide-react';
+import { jobPostApi, JobPost } from '@/lib/api';
+import { toast } from 'sonner';
 
 export default function Jobs() {
-    const [selectedJob, setSelectedJob] = useState<typeof jobs[0] | null>(null);
+    const [jobs, setJobs] = useState<JobPost[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedJob, setSelectedJob] = useState<JobPost | null>(null);
     const navigate = useNavigate();
 
-    const handleApply = (job: typeof jobs[0]) => {
+    useEffect(() => {
+        fetchActiveJobs();
+    }, []);
+
+    const fetchActiveJobs = async () => {
+        setLoading(true);
+        try {
+            const response = await jobPostApi.getActive();
+            
+            if (response.success && response.data) {
+                if (Array.isArray(response.data)) {
+                    setJobs(response.data);
+                } else if (response.data.jobPosts) {
+                    setJobs(response.data.jobPosts);
+                } else if (response.data.jobPost) {
+                    setJobs([response.data.jobPost]);
+                } else {
+                    setJobs([]);
+                }
+            } else {
+                setJobs([]);
+            }
+        } catch (error) {
+            console.error('Error fetching jobs:', error);
+            toast.error('Failed to load job listings');
+            setJobs([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleApply = (job: JobPost) => {
         navigate('/apply-job', { state: { job } });
+    };
+
+    const formatDate = (dateString: string) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
     };
 
     return (
@@ -76,66 +78,72 @@ export default function Jobs() {
                     </motion.div>
                 </div>
 
-                <div className="grid gap-6 md:grid-cols-2 max-w-5xl mx-auto">
-                    {jobs.map((job, index) => (
-                        <motion.div
-                            key={job.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: index * 0.1 }}
-                        >
-                            <Card
-                                className="h-full flex flex-col hover:shadow-md transition-shadow duration-300 border-border/50 bg-card/60 backdrop-blur-sm overflow-hidden group cursor-pointer"
-                                onClick={() => setSelectedJob(job)}
+                {loading ? (
+                    <div className="flex items-center justify-center py-20">
+                        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                    </div>
+                ) : (
+                    <div className="grid gap-6 md:grid-cols-2 max-w-5xl mx-auto">
+                        {jobs.map((job, index) => (
+                            <motion.div
+                                key={job.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.5, delay: index * 0.1 }}
                             >
-                                <CardHeader className="pb-4">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
-                                            {job.type}
-                                        </Badge>
-                                        <div className="flex items-center text-xs text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full border border-border/50">
-                                            <Calendar className="w-3.5 h-3.5 mr-1.5" />
-                                            Posted: {job.date}
+                                <Card
+                                    className="h-full flex flex-col hover:shadow-md transition-shadow duration-300 border-border/50 bg-card/60 backdrop-blur-sm overflow-hidden group cursor-pointer"
+                                    onClick={() => setSelectedJob(job)}
+                                >
+                                    <CardHeader className="pb-4">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+                                                {job.type}
+                                            </Badge>
+                                            <div className="flex items-center text-xs text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full border border-border/50">
+                                                <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                                                Posted: {formatDate(job.date)}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <CardTitle className="text-xl group-hover:text-primary transition-colors">{job.title}</CardTitle>
-                                    <CardDescription className="flex items-center gap-4 mt-2.5 text-sm">
-                                        <span className="flex items-center">
-                                            <MapPin className="w-4 h-4 mr-1.5 text-muted-foreground/70" />
-                                            {job.location}
-                                        </span>
-                                        <span className="flex items-center">
-                                            <Briefcase className="w-4 h-4 mr-1.5 text-muted-foreground/70" />
-                                            {job.experience}
-                                        </span>
-                                        <span className="flex items-center">
-                                            <UserPlus className="w-4 h-4 mr-1.5 text-muted-foreground/70" />
-                                            {job.position}
-                                        </span>
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="flex-grow pb-6">
-                                    <p className="text-muted-foreground text-sm leading-relaxed line-clamp-2">
-                                        {job.description}
-                                    </p>
-                                </CardContent>
-                                <CardFooter className="pt-0 pb-6 mt-auto">
-                                    <Button
-                                        className="w-full gradient-hero text-primary-foreground border-0 hover:opacity-90 transition-opacity"
-                                        onClick={(e) => {
-                                            e.stopPropagation(); // Prevents card click from opening dialog, instead just open dialog via button as well
-                                            setSelectedJob(job);
-                                        }}
-                                    >
-                                        View Details
-                                    </Button>
-                                </CardFooter>
-                            </Card>
-                        </motion.div>
-                    ))}
-                </div>
+                                        <CardTitle className="text-xl group-hover:text-primary transition-colors">{job.title}</CardTitle>
+                                        <CardDescription className="flex items-center gap-4 mt-2.5 text-sm">
+                                            <span className="flex items-center">
+                                                <MapPin className="w-4 h-4 mr-1.5 text-muted-foreground/70" />
+                                                {job.location}
+                                            </span>
+                                            <span className="flex items-center">
+                                                <Briefcase className="w-4 h-4 mr-1.5 text-muted-foreground/70" />
+                                                {job.experience}
+                                            </span>
+                                            <span className="flex items-center">
+                                                <UserPlus className="w-4 h-4 mr-1.5 text-muted-foreground/70" />
+                                                {job.position}
+                                            </span>
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="flex-grow pb-6">
+                                        <p className="text-muted-foreground text-sm leading-relaxed line-clamp-2">
+                                            {job.description}
+                                        </p>
+                                    </CardContent>
+                                    <CardFooter className="pt-0 pb-6 mt-auto">
+                                        <Button
+                                            className="w-full gradient-hero text-primary-foreground border-0 hover:opacity-90 transition-opacity"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedJob(job);
+                                            }}
+                                        >
+                                            View Details
+                                        </Button>
+                                    </CardFooter>
+                                </Card>
+                            </motion.div>
+                        ))}
+                    </div>
+                )}
 
-                {jobs.length === 0 && (
+                {jobs.length === 0 && !loading && (
                     <div className="text-center py-20">
                         <h3 className="text-xl font-medium text-foreground">No open positions at the moment.</h3>
                         <p className="text-muted-foreground mt-2">Please check back later for new opportunities.</p>
@@ -154,7 +162,7 @@ export default function Jobs() {
                                         </Badge>
                                         <div className="flex items-center text-xs text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full border border-border/50">
                                             <Calendar className="w-3.5 h-3.5 mr-1.5" />
-                                            Posted: {selectedJob.date}
+                                            Posted: {formatDate(selectedJob.date)}
                                         </div>
                                     </div>
                                     <DialogTitle className="text-2xl font-heading mb-2">{selectedJob.title}</DialogTitle>
@@ -169,7 +177,7 @@ export default function Jobs() {
                                         </span>
                                         <span className="flex items-center font-medium">
                                             <UserPlus className="w-4 h-4 mr-1.5 text-primary" />
-                                            {selectedJob.position}
+                                            {selectedJob.position} position{selectedJob.position > 1 ? 's' : ''}
                                         </span>
                                     </DialogDescription>
                                 </DialogHeader>
@@ -181,26 +189,6 @@ export default function Jobs() {
                                     </h4>
                                     <div className="text-muted-foreground leading-relaxed space-y-4">
                                         <p>{selectedJob.description}</p>
-
-                                        <div>
-                                            <strong className="text-foreground">Key Responsibilities:</strong>
-                                            <ul className="list-disc pl-5 mt-2 space-y-1.5">
-                                                <li>Collaborate with cross-functional teams to define, design, and ship new features.</li>
-                                                <li>Ensure code quality, organization, and automation within the project.</li>
-                                                <li>Identify and correct bottlenecks, fix bugs, and improve application performance.</li>
-                                                <li>Continuously discover, evaluate, and implement new technologies.</li>
-                                            </ul>
-                                        </div>
-
-                                        <div>
-                                            <strong className="text-foreground">Requirements & Qualifications:</strong>
-                                            <ul className="list-disc pl-5 mt-2 space-y-1.5">
-                                                <li>Proven experience in the relevant technology stack and domain.</li>
-                                                <li>Strong communication, teamwork, and problem-solving skills.</li>
-                                                <li>Ability to adapt to a fast-paced, dynamic work environment.</li>
-                                                <li>Bachelor degree in Computer Science, Design, or related field (or equivalent experience).</li>
-                                            </ul>
-                                        </div>
                                     </div>
                                 </div>
 

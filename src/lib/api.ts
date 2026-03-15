@@ -678,6 +678,173 @@ export const candidateApi = {
   },
 };
 
+// Job Post types
+export type JobType = 'Full-time' | 'Part-time' | 'Contract' | 'Internship';
+export type JobStatus = 'Active' | 'Closed';
+
+export interface JobPost {
+  id: number;
+  title: string;
+  date: string;
+  type: JobType;
+  location: string;
+  experience: string;
+  description: string;
+  position: number;
+  status: JobStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JobPostApiResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    jobPosts?: JobPost[];
+    jobPost?: JobPost;
+  };
+}
+
+// Job Post API functions
+export const jobPostApi = {
+  // Get all job posts
+  getAll: async (): Promise<JobPostApiResponse> => {
+    return fetchApi<JobPostApiResponse>('/job-posts', {
+      method: 'GET',
+    });
+  },
+
+  // Get active job posts (for public listing)
+  getActive: async (): Promise<JobPostApiResponse> => {
+    return fetchApi<JobPostApiResponse>('/job-posts/active', {
+      method: 'GET',
+    });
+  },
+
+  // Get single job post by ID
+  getById: async (id: number): Promise<JobPostApiResponse> => {
+    return fetchApi<JobPostApiResponse>(`/job-posts/${id}`, {
+      method: 'GET',
+    });
+  },
+
+  // Create new job post
+  create: async (data: {
+    title: string;
+    date: string;
+    type: JobType;
+    location: string;
+    experience: string;
+    description: string;
+    position: number;
+    status?: JobStatus;
+  }): Promise<JobPostApiResponse> => {
+    return fetchApi<JobPostApiResponse>('/job-posts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Update job post
+  update: async (id: number, data: Partial<{
+    title: string;
+    date: string;
+    type: JobType;
+    location: string;
+    experience: string;
+    description: string;
+    position: number;
+    status: JobStatus;
+  }>): Promise<JobPostApiResponse> => {
+    return fetchApi<JobPostApiResponse>(`/job-posts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Delete job post
+  delete: async (id: number): Promise<{ success: boolean; message: string }> => {
+    return fetchApi<{ success: boolean; message: string }>(`/job-posts/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// Job Application types
+export type JobApplicationStatus = 'Applied' | 'Shortlisted' | 'Interview Scheduled' | 'Rejected' | 'Hired';
+
+export interface JobApplication {
+  id: number;
+  jobId: number;
+  jobTitle: string;
+  name: string;
+  email: string;
+  mobile: string;
+  education: string;
+  address: string;
+  resumeUrl: string;
+  status: JobApplicationStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JobApplicationApiResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    jobApplications?: JobApplication[];
+    jobApplication?: JobApplication;
+  };
+}
+
+// Job Application API functions
+export const jobApplicationApi = {
+  // Get all job applications (requires auth)
+  getAll: async (): Promise<JobApplicationApiResponse> => {
+    return fetchApi<JobApplicationApiResponse>('/job-applications', {
+      method: 'GET',
+    });
+  },
+
+  // Get single job application by ID
+  getById: async (id: number): Promise<JobApplicationApiResponse> => {
+    return fetchApi<JobApplicationApiResponse>(`/job-applications/${id}`, {
+      method: 'GET',
+    });
+  },
+
+  // Submit job application (public)
+  submit: async (data: {
+    jobId: number;
+    jobTitle: string;
+    name: string;
+    email: string;
+    mobile: string;
+    education: string;
+    address: string;
+  }): Promise<JobApplicationApiResponse> => {
+    return fetchApi<JobApplicationApiResponse>('/job-applications', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Update job application status
+  updateStatus: async (id: number, status: string): Promise<JobApplicationApiResponse> => {
+    return fetchApi<JobApplicationApiResponse>(`/job-applications/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  // Delete job application
+  delete: async (id: number): Promise<{ success: boolean; message: string }> => {
+    return fetchApi<{ success: boolean; message: string }>(`/job-applications/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 // Client types
 export interface BackendClient {
   id: number;

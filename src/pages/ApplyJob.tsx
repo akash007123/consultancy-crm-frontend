@@ -10,14 +10,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, Briefcase, FileUp, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Calendar, MapPin, Briefcase, FileUp, ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
+import { JobPost, jobApplicationApi } from '@/lib/api';
+import { toast } from 'sonner';
 
 const applicationSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
     email: z.string().email('Invalid email address'),
     mobile: z.string().min(10, 'Mobile number must be at least 10 digits'),
-    address: z.string().min(10, 'Please provide a complete address'),
-    education: z.string().min(5, 'Please provide your highest education'),
+    address: z.string().min(5, 'Please provide a complete address'),
+    education: z.string().min(2, 'Please provide your highest education'),
     resume: z.any().refine((files) => files?.length === 1, 'Resume is required')
 });
 
@@ -26,7 +28,7 @@ type ApplicationFormValues = z.infer<typeof applicationSchema>;
 export default function ApplyJob() {
     const location = useLocation();
     const navigate = useNavigate();
-    const job = location.state?.job;
+    const job = location.state?.job as JobPost | undefined;
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
@@ -50,15 +52,34 @@ export default function ApplyJob() {
     });
 
     const onSubmit = async (data: ApplicationFormValues) => {
+        if (!job) return;
+        
         setIsSubmitting(true);
-        // Simulate API call
-        console.log('Application Data:', { ...data, jobId: job.id, jobTitle: job.title });
+        try {
+            // Submit application to backend
+            const response = await jobApplicationApi.submit({
+                jobId: job.id,
+                jobTitle: job.title,
+                name: data.name,
+                email: data.email,
+                mobile: data.mobile,
+                education: data.education,
+                address: data.address
+            });
 
-        setTimeout(() => {
+            if (response.success) {
+                toast.success('Application submitted successfully!');
+                setIsSuccess(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                toast.error(response.message || 'Failed to submit application');
+            }
+        } catch (error) {
+            console.error('Error submitting application:', error);
+            toast.error(error instanceof Error ? error.message : 'Failed to submit application');
+        } finally {
             setIsSubmitting(false);
-            setIsSuccess(true);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }, 1500);
+        }
     };
 
     if (!job) return null;
@@ -103,6 +124,16 @@ export default function ApplyJob() {
             </div>
         );
     }
+
+    const formatDate = (dateString: string) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
+    };
 
     return (
         <div className="pt-24 pb-16 min-h-screen bg-background relative">
@@ -151,7 +182,7 @@ export default function ApplyJob() {
                                             </div>
                                             <div className="flex items-center text-sm text-muted-foreground">
                                                 <Calendar className="w-4 h-4 mr-3 text-primary/70" />
-                                                Posted: {job.date}
+                                                Posted: {formatDate(job.date)}
                                             </div>
                                             <div className="pt-4 mt-2 border-t border-border/50">
                                                 <p className="text-sm text-muted-foreground line-clamp-4 leading-relaxed">
@@ -294,13 +325,10 @@ export default function ApplyJob() {
                                                         disabled={isSubmitting}
                                                     >
                                                         {isSubmitting ? (
-                                                            <span className="flex items-center">
-                                                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                </svg>
+                                                            <>
+                                                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                                                                 Submitting Application...
-                                                            </span>
+                                                            </>
                                                         ) : (
                                                             'Submit Application'
                                                         )}
